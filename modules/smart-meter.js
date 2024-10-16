@@ -2,28 +2,43 @@
 const https= require('https');
 const asyncWrapper = require('./async');
 
-const estateSecretKeys = {
-    101: process.env.SecretKey101,
-    102: process.env.SecretKey102,
-    103: process.env.SecretKey103,
-    104: process.env.SecretKey104,
-    105: process.env.SecretKey105,
-    106: process.env.SecretKey106
-    // Add more estates as needed
-    };
 const estateSubAccount = {
-    101: process.env.SubAccount101,
-    102: process.env.SubAccount102,
-    103: process.env.SubAccount103,
+    101: process.env.ValleyStreamSubAccount,
+    102: process.env.FaithLegacySubAccount,
+    103: process.env.ViewPointSubAccount,
     104: process.env.SubAccount104,
     105: process.env.SubAccount105,
     106: process.env.SubAccount106,
-    1011: process.env.SubAccount1011,
-    1022: process.env.SubAccount1022,
-    1033: process.env.SubAccount1033,
-    1044: process.env.SubAccount1044,
-    1055: process.env.SubAccount1055,
-    1066: process.env.SubAccount1066
+    107: process.env.FitFacilitySubAccount
+}
+
+//funtion to know if amount is greater than 2500
+function payFeeCheck(amount) {
+  //define the cap fee 2000, the max amout for waiver 2500, the amount to be bought
+  const capfee = 2000
+  const payFee = 2500
+  const theRate = 0.015
+  const kobo = 100
+  const checkCharge = amount * 0.015
+  let theAmount
+  let paymentAmount
+
+  if (amount >= payFee && checkCharge >= capfee) {    //if greater than or equal to capfee 2000
+    theAmount = amount + capfee;
+    paymentAmount = theAmount * kobo
+  } else if(amount >= payFee && checkCharge < capfee) {    //if less than capfee 2000
+    theAmount = ((amount + kobo) / (1 - theRate)) + 0.03
+    paymentAmount = theAmount * kobo
+  } else if(amount < payFee){
+    //then there is a flat fee wavier
+    theAmount = (amount / (1 - theRate)) + 0.03
+    paymentAmount = theAmount * kobo
+  } else{
+    console.log("Calculation error");
+  }
+  
+  //then return the payment amount
+  return paymentAmount
 }
 
 const thePayment = asyncWrapper(
@@ -37,92 +52,17 @@ const thePayment = asyncWrapper(
         //the real amount and subaccount to be passed
         let realAmount
         let realSubAccount
-        let feeCap = 2000
-        
-    
-        //get the secret key of the entered estateiD
-        const SecretKey = estateSecretKeys[estateID];
-        if (!SecretKey) {
-          console.error('Invalid estate name:', estateID);
-          res.status(400).json({ error: 'Invalid estate name' });
-          //else continue the process
-          return;
-      }
+        const SecretKey = process.env.TheSecretKey
 
-        //at this point i have to check for the estateID and proper mount
-        if (estateID == 101) {      //valleyStream does not have a constraint as at the time of development. it is 1%
-          //var cwgChargees = amount / (1 - 0.01) + 0.01
-          var paystackAmountss = amount / (1 - 0.015) + 0.01;
-          realAmount = paystackAmountss * 100
+        //just an extra layer of security
+        if (amount <= 100000){
+          realAmount = payFeeCheck(amount)
           realSubAccount = estateSubAccount[estateID]
-        } else if (estateID == 102) {       //faith legacy (look in db to sure of the estateID)
-          //then check for the amount and what to charge
-          if (amount <= 20000){
-            //then add the charges and the appropriate subaccount
-            var cwgCharge = amount / (1 - 0.03) + 0.01
-            //cap fee may not apply here
-            var paystackAmount = cwgCharge / (1 - 0.015) + 0.01;
-            //pass the money to kobo and submit
-            realAmount = paystackAmount * 100
-            //pass in the subacccout
-            realSubAccount = estateSubAccount[estateID]   //subaccount 102
-          }else {
-            //greater than 20000 pays 1.5%
-            //here cap fee may apply. i have to check for it
-            var cwggCharge = amount * 0.015    //out charge
-            if (cwggCharge > feeCap) {
-              //set our price and paystacks
-              cwggCharge = amount / (1 - 0.015) + 0.01
-              var paystackAmount = cwggCharge + 2000;
-              realAmount = paystackAmount * 100   //to kobo
-              realSubAccount = estateSubAccount[1022]
-            }else{
-              //it means it didn't pass the feeCap
-              cwggCharge = amount / (1 - 0.015) + 0.01
-              var paystackAmount = cwgCharge / (1 - 0.015) + 0.01
-              realAmount = paystackAmount * 100
-              realSubAccount = estateSubAccount[1022]
-            }
-          }
-        } else if (estateID == 103) {     //Viewpoint
-          if (amount <= 20000){
-            //then add the charges and the appropriate subaccount
-            var cwgCharge = amount / (1 - 0.04) + 0.01
-            //cap fee may not apply here
-            var paystackAmount = cwgCharge / (1 - 0.015) + 0.01;
-            //pass the money to kobo and submit
-            realAmount = paystackAmount * 100
-            //pass in the subacccout
-            realSubAccount = estateSubAccount[estateID]   //subaccount 102
-          }else {
-            //greater than 20000 pays 2%
-            //here cap fee may apply. i have to check for it
-            var cwggCharge = amount * 0.02    //out charge
-            if (cwggCharge > feeCap) {
-              //set our price and paystacks
-              cwggCharge = amount / (1 - 0.02) + 0.01
-              var paystackAmount = cwggCharge + 2000;
-              realAmount = paystackAmount * 100   //to kobo
-              realSubAccount = estateSubAccount[1033]
-            }else{
-              //it means it didn't pass the feeCap
-              cwggCharge = amount / (1 - 0.02) + 0.01
-              var paystackAmount = cwgCharge / (1 - 0.015) + 0.01
-              realAmount = paystackAmount * 100
-              realSubAccount = estateSubAccount[1033]
-            }
-          }
-        } else {
-          //meaning in a case where it isnt among the ones with tariff
-          //the subaccount will be set to zero on the paystack
-          var paystackAmountt = amount / (1 - 0.015) + 0.01
-          realAmount = paystackAmountt * 100
-          realSubAccount = estateSubAccount[estateID]     //which will be set to zero on the paystack account
+        } else{
+          console.log("Amount Not Applicable");
         }
-        //else subaccount is equal this
-        //const subaccount = estateSubAccount[estateID];
-
         
+        //this only returns an error if the one above returns an error
         if (!realSubAccount) {    
             console.error('Invalid subaccount of:', estateID);
             res.status(400).json({ error: 'Invalid subaccount' });
@@ -147,7 +87,7 @@ const thePayment = asyncWrapper(
             path: '/transaction/initialize',
             method: 'POST',
             headers: {
-              Authorization: 'Bearer '+SecretKey,
+              Authorization: 'Bearer '+ SecretKey,
               'Content-Type': 'application/json'
             },
             body: {
@@ -172,31 +112,16 @@ const thePayment = asyncWrapper(
           }).on('error', error => {
             console.error(error)
           })
-          
           reqR.write(params)
           reqR.end()
     },
 )
-        //verify call back
+        //verify to reify the transaction after payment
 const verifyTrans = asyncWrapper(
     async (req, res) => {
         var refID = req.body.reference;
-        //pass in the estateId from the app so i can get the exact secretKey
-        var estateID = req.body.estateID;
-        //add the amount
-        //var amount = req.body.amount;
-
-        let theCharge 
-        //get the secret key of the entered estateiD
-        const SecretKey = estateSecretKeys[estateID];
-        //and get the secret for the exact bearer
-        if (!SecretKey) {
-            console.error('Invalid estate name:', estateID);
-            res.status(400).json({ error: 'Invalid estate name' });
-            return;
-        }
-
-
+        const SecretKey = process.env.TheSecretKey;
+        
         const params = JSON.stringify({
             "reference": refID
           })
@@ -224,7 +149,6 @@ const verifyTrans = asyncWrapper(
         }).on('error', error => {
         console.error(error)
         })
-        //reqR.write(refID)
         reqR.end()
     },
 )
