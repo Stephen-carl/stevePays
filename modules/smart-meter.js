@@ -3,13 +3,13 @@ const https= require('https');
 const asyncWrapper = require('./async');
 
 const estateSubAccount = {
-    101: process.env.ValleyStreamSubAccount,
-    102: process.env.FaithLegacySubAccount,
-    103: process.env.ViewPointSubAccount,
-    104: process.env.SubAccount104,
-    105: process.env.SubAccount105,
-    106: process.env.SubAccount106,
-    107: process.env.FitFacilitySubAccount
+    100: process.env.ValleyStreamSubAccount,
+    101: process.env.FaithLegacySubAccount,
+    102: process.env.ViewPointSubAccount,
+    103: process.env.SubAccount104,
+    104: process.env.SubAccount105,
+    105: process.env.SubAccount106,
+    106: process.env.FitFacilitySubAccount
 }
 
 //funtion to know if amount is greater than 2500
@@ -60,6 +60,7 @@ const thePayment = asyncWrapper(
           realSubAccount = estateSubAccount[estateID]
         } else{
           console.log("Amount Not Applicable");
+          res.status(400).json({ message: 'Amount Not Applicable' });
         }
         
         //this only returns an error if the one above returns an error
@@ -110,6 +111,7 @@ const thePayment = asyncWrapper(
               
             })
           }).on('error', error => {
+            res.status(400).json({ message: error.message });
             console.error(error)
           })
           reqR.write(params)
