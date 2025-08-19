@@ -4,15 +4,15 @@ const asyncWrapper = require('./async');
 
 const estateSubAccount = {
     //100: process.env.SteveCWGSubAccount,    // test
-    100: process.env.MeteringTestSub, // test case, 
-    101: process.env.YellowGateSubAccount,
+    100: process.env.SteveCWGSubAccount, // test case, 
+    101: process.env.SteveCWGSubAccount,
     //102: process.env.ViewPointSubAccount,
     
 }
 
 const estateServiceAccount = {
   //100: process.env.SteveCWGSubAccount,    // test
-  100: process.env.MeteringTestSub, // test case, 
+  100: process.env.SteveCWGSubAccount, // test case, 
   101: process.env.YellowGateSubAccount,
   //102: process.env.ViewPointSubAccount,
   
@@ -73,6 +73,8 @@ const thePayment = asyncWrapper(
         var email = req.body.email;
         // expect a field called hasPayAcct
         var hasPayAcct = req.body.hasPayAcct;
+        var platform = req.body.platform;
+        var role = req.body.role;
 
         if (!hasPayAcct) {
           return res.status(401).json({ message: "Provide the necessary field"})
@@ -95,15 +97,15 @@ const thePayment = asyncWrapper(
           
         } else{
           // company account and estate subaccount
-          SecretKey = process.env.TheSecretKey
-          //SecretKey = process.env.SteveAccountKey
+          //SecretKey = process.env.TheSecretKey
+          SecretKey = process.env.SteveAccountKey
           realSubAccount = estateSubAccount[estateID]
           console.log('CWG has paystact account, estate is subaccount ');
           
         }
         
         //just an extra layer of security
-        if (amount <= 100000){
+        if (amount <= 300000){
           realAmount = payFeeCheck(amount)
         } else{
           console.log("Amount Not Applicable");
@@ -119,13 +121,43 @@ const thePayment = asyncWrapper(
 
         console.log( amount, realAmount);
 
-        const params = JSON.stringify({
-            "amount": [parseInt(realAmount)],
-            "email": email,
-            "reference": reference,
-            "subaccount" : realSubAccount,
-            'bearer' : 'subaccount'
-          })
+        // const params = JSON.stringify({
+        //     "amount": [parseInt(realAmount)],
+        //     "email": email,
+        //     "reference": reference,
+        //     "subaccount" : realSubAccount,
+        //     'bearer' : 'subaccount'
+        //   })
+
+        // Build the base payload
+        const payload = {
+          amount: parseInt(realAmount),
+          email: email,
+          reference: reference,
+          subaccount: realSubAccount,
+          bearer: 'subaccount'
+        };
+
+          let callback_url = '';
+          if (platform === 'web') {
+            // For web
+            if (role === 'admin') {
+              callback_url = process.env.WEB_USER_CALLBACK_URL;
+            } else {
+              callback_url = process.env.WEB_USER_CALLBACK_URL; 
+            }
+          } else {
+            // For app, i might not want a redirect
+            callback_url = ''; 
+          }
+        
+          // If a callback_url is defined, add it to the payload
+          if (callback_url) {
+            payload.callback_url = callback_url;
+          }
+
+          const params = JSON.stringify(payload);
+          
 
           //stringify the meterID parameter into the body
         //   const metadata = JSON.stringify({
@@ -186,8 +218,8 @@ const verifyTrans = asyncWrapper(
           // then initiate the payment in a that the secret key called is the estate's own
           SecretKey = estatePayStackAccount[estateID]
         } else{
-          SecretKey = process.env.TheSecretKey
-          //SecretKey = process.env.SteveAccountKey
+          // SecretKey = process.env.TheSecretKey
+          SecretKey = process.env.SteveAccountKey
         }
 
         console.log( refID);
@@ -236,7 +268,9 @@ const theServicePayment = asyncWrapper(
       var email = req.body.email;
       // expect a field called hasPayAcct
       var hasPayAcct = req.body.hasPayAcct;
-
+      var platform = req.body.platform;
+      var role = req.body.role;
+      
       if (!hasPayAcct) {
         return res.status(401).json({ message: "Provide the necessary field"})
       }
@@ -249,8 +283,8 @@ const theServicePayment = asyncWrapper(
       console.log(hasPayAcct);
       
       // company account and estate subaccount
-      SecretKey = process.env.TheSecretKey
-      //SecretKey = process.env.SteveAccountKey
+      // SecretKey = process.env.TheSecretKey
+      SecretKey = process.env.SteveAccountKey
       realSubAccount = estateServiceAccount[estateID]
       console.log('CWG has paystact account, estate is subaccount ');
 
@@ -273,13 +307,34 @@ const theServicePayment = asyncWrapper(
 
       console.log( amount, realAmount);
 
-      const params = JSON.stringify({
-          "amount": [parseInt(realAmount)],
-          "email": email,
-          "reference": reference,
-          "subaccount" : realSubAccount,
-          'bearer' : 'subaccount'
-        })
+      // Build the base payload
+        const payload = {
+          amount: parseInt(realAmount),
+          email: email,
+          reference: reference,
+          subaccount: realSubAccount,
+          bearer: 'subaccount'
+        };
+
+          let callback_url = '';
+          if (platform === 'web') {
+            // For web, provide callback URL
+            if (role === 'admin') {
+              callback_url = process.env.WEB_ADMIN_CALLBACK_URL;
+            } else {
+              callback_url = process.env.WEB_USER_CALLBACK_URL; 
+            }
+          } else {
+            // For app, you might not want a redirect
+            callback_url = ''; 
+          }
+        
+          // If a callback_url is defined, add it to the payload
+          if (callback_url) {
+            payload.callback_url = callback_url;
+          }
+
+          const params = JSON.stringify(payload);
         
         const options = {
           hostname: 'api.paystack.co',
@@ -331,8 +386,8 @@ const verifyServicePayment = asyncWrapper(
         return res.status(401).json({ message: "Provide the necessary field"})
       }
       
-      SecretKey = process.env.TheSecretKey
-        //SecretKey = process.env.SteveAccountKey
+      //SecretKey = process.env.TheSecretKey
+      SecretKey = process.env.SteveAccountKey
 
       console.log( refID);
       
@@ -356,7 +411,6 @@ const verifyServicePayment = asyncWrapper(
       resS.on('data', (chunk) => {
           data += chunk
       });
-
       resS.on('end', () => {
           res.send(data)
           console.log(JSON.parse(data))
